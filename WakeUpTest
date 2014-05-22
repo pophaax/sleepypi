@@ -1,0 +1,84 @@
+#include "SleepyPi.h"
+#include <Time.h>
+#include <LowPower.h>
+#include <DS1374RTC.h>
+#include <Wire.h>
+
+const int LED_PIN = 13;
+
+//const int SLEEP_LENGTH = 60; // 1 min
+const int SLEEP_LENGTH = 15; // 15 seg - Test
+
+boolean recentLongSleep;
+
+void alarm_isr()
+{
+	// Just a handler for the alarm interrupt.
+	// Empty by now
+}
+
+void setup()
+{
+	
+	// Configure "Standard" LED pin
+	pinMode(LED_PIN, OUTPUT);
+	digitalWrite(LED_PIN,LOW);		// Switch off LED
+	
+	SleepyPi.enablePiPower(false);
+	
+	// initialize serial communication: In Arduino IDE use "Serial Monitor"
+	Serial.begin(9600);
+	
+	recentLongSleep = false;
+	
+}
+
+void loop()
+{
+	
+	if(recentLongSleep) {
+		
+		// SleepyPi goes to sleep for 2 seconds and then checkPiStatus
+		SleepyPi.powerDown(SLEEP_2S, ADC_OFF, BOD_OFF);
+		
+		if(SleepyPi.checkPiStatus(false)){
+			// RPi is running
+			// Empty by now
+		} else {
+			// RPi is not running anymore
+			recentLongSleep = false;
+		}
+		
+	} else {
+		// RPi is not running
+		
+		// Allow wake up alarm to trigger interrupt on falling edge.
+		attachInterrupt(0, alarm_isr, FALLING);		// Alarm pin
+		
+		SleepyPi.enableWakeupAlarm();
+		SleepyPi.setAlarm(SLEEP_LENGTH);
+		recentLongSleep = true;
+		
+		// Enter power down state with ADC and BOD module disabled.
+		// Wake up when wake up pin is low.
+		SleepyPi.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+		
+		// Disable external pin interrupt on wake up pin.
+		detachInterrupt(0);
+		
+		SleepyPi.enablePiPower(true);
+		
+		// First blink
+		digitalWrite(LED_PIN,HIGH);		// Switch on LED
+		delay(250);
+		digitalWrite(LED_PIN,LOW);		// Switch off LED
+		delay(250);
+	}
+
+	// Second blink
+	digitalWrite(LED_PIN,HIGH);		// Switch on LED
+	delay(250);
+	digitalWrite(LED_PIN,LOW);		// Switch off LED
+	delay(250);
+	
+}
